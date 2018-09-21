@@ -6,24 +6,22 @@
 
 ### Server
 
-`sft server <listening ip>:<listening port>`
+`sft listen <listening ip>:<listening port>`
 
-Example: `sft server 127.0.0.1:8888`
+Example: `sft listen 127.0.0.1:8888`
 
 ### Client
 
-`sft client <server ip>:<port>`
+`sft connect <server ip>:<port>`
 
-Example: `sft client 127.0.0.1:8888`
+Example: `sft connect 127.0.0.1:8888`
 
 If the connection is established, you can use command `ls` to list the files and command `get` to download a file.
 
-## Transportation Protocal
+## Transportation Protocol
 
-This program uses TCP/IP for the transportation protocal. It sets the maximum size of one package to 1024, which is specified by constance `packageSize`. 
+This program uses TCP/IP for the transportation protocol. We use the first 4 bytes as header. The header is a little-eden representation of a 32-bit signed integer. If this integer is positive, it means that the operation success and the integer equals to the length of respond message, if it is negative, it means that the operation failed and the integer equals to the opposite number of the length of the error message.  
 
-When the client executes `ls` command, it sends a package with a single byte `0` to server, the server sends a package that starts with a byte `0` and follows by the file-list string back. It assumes that the message does not exceed the maximum size.
+When the client executes `ls` command, it will send an empty package (that is, with only the header and all are `0`). When the client executes `get` command, it will send the file name to server.
 
-When the client executes `get` command, it sends a package that starts with a byte `1` and follows by the file-name string to server, the server sends one or more packages that starts with a byte `0` and follows by the file content back. The server guarantees that the size of the last package is strictly less than the maximum size, even though it may contains only a single byte `0`, which indicates that there's nothing more.
-
-If there's any error on server, it sends a package starts with a byte `1` and follows by the error-message string back.
+When the server receives `ls` command, it sends the file-list string back. When the server receives `get` command, it sends the content of the file back. Whenever error occurs (i.e. File not found), it sends error message back.
