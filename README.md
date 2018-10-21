@@ -31,3 +31,9 @@ This program uses TCP/IP for the transportation protocol. We use the first 4 byt
 When the client executes `ls` command, it will send an empty package (that is, with only the header of value `0`). When the client executes `get` command, it will send the file name to server.
 
 When the server receives `ls` command, it sends the file-list string back. When the server receives `get` command, it sends the content of the file back. Whenever error occurs (i.e. File not found), it sends error message back.
+
+## TODO
+
+* Add tests.
+* Better deal with disconnection.
+* Add docker back.
