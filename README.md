@@ -1,3 +1,5 @@
+[![wercker status](https://app.wercker.com/status/ddd250bc7c2e2c24bfe85689f8ff45ba/s/master "wercker status")](https://app.wercker.com/project/byKey/ddd250bc7c2e2c24bfe85689f8ff45ba)
+
 # sft
 
 <del>Stupid</del>Simple File Transporter
