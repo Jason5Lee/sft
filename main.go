@@ -22,7 +22,15 @@ func (ce LocalError) Error() string {
 }
 
 func printUsageAndExit() {
-	fmt.Println("Usage:\n\tsft listen <listening ip>:<listening port>\n\tsft connect <server ip>:<port>")
+	fmt.Println(`Usage:
+	sft [command] [arguments]
+
+Avaliable commands and their arguments:
+
+	listen [ip]:<port>	starts the sft server at current directory.
+	connect	<ip>:<port>	connects to a sft server.
+
+If no argument is provided, and the env arg PORT is set, it will start a server listening $PORT.`)
 	os.Exit(1)
 }
 
@@ -34,11 +42,12 @@ func ifErrorPrintAndExit(err error) {
 }
 
 func showHelp() {
-	fmt.Print("Available Command:\n" +
-		"\tls\t\tList all file.\n" +
-		"\tget <file name>\tGet a file.\n" +
-		"\texit\t\tExit.\n" +
-		"\thelp\t\tPrint this message.\n")
+	fmt.Print(`Available Command:
+	ls		list all filenames
+	get <filename>	download a file to current directory
+	exit		disconnect
+	help		print this message
+`)
 }
 
 func sendHeader(conn net.Conn, header int32) error {
@@ -255,8 +264,9 @@ func serverLoop(conn net.Conn) error {
 	return sendFile(conn, msg)
 }
 
-func startServer() {
-	sock, err := net.Listen("tcp", os.Args[2])
+func startServer(arg string) {
+	fmt.Println("Listening " + arg)
+	sock, err := net.Listen("tcp", arg)
 	ifErrorPrintAndExit(err)
 
 	defer sock.Close()
@@ -284,18 +294,25 @@ func startServer() {
 }
 
 func main() {
-	if len(os.Args) != 3 {
-		printUsageAndExit()
-	}
+	if len(os.Args) == 1 {
+		port := os.Getenv("PORT")
+		if len(port) == 0 {
+			printUsageAndExit()
+		}
 
-	switch os.Args[1] {
-	case "connect":
-		startClient()
-		break
-	case "listen":
-		startServer()
-		break
-	default:
+		startServer(":" + port)
+	} else if len(os.Args) == 3 {
+		switch os.Args[1] {
+		case "connect":
+			startClient()
+			break
+		case "listen":
+			startServer(os.Args[2])
+			break
+		default:
+			printUsageAndExit()
+		}
+	} else {
 		printUsageAndExit()
 	}
 }
