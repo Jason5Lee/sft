@@ -52,13 +52,3 @@ build:
         name: copy files to wercker output
         code: |
           cp -R ./ ${WERCKER_OUTPUT_DIR}
-deploy:
- steps:
-   - internal/docker-push:
-       username: $DOCKER_USERNAME
-       password: $DOCKER_PASSWORD
-       cmd: /pipeline/source/sft listen :8888
-       port: "8888"
-       tag: latest
-       repository: jason5lee/sft
-       registry: https://registry.hub.docker.com
