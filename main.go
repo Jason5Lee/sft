@@ -28,9 +28,7 @@ func printUsageAndExit() {
 Avaliable commands and their arguments:
 
 	listen [ip]:<port>	starts the sft server at current directory.
-	connect	<ip>:<port>	connects to a sft server.
-
-If no argument is provided, and the env arg PORT is set, it will start a server listening $PORT.`)
+	connect	<ip>:<port>	connects to a sft server.`)
 	os.Exit(1)
 }
 
@@ -264,9 +262,9 @@ func serverLoop(conn net.Conn) error {
 	return sendFile(conn, msg)
 }
 
-func startServer(arg string) {
-	fmt.Println("Listening " + arg)
-	sock, err := net.Listen("tcp", arg)
+func startServer() {
+	fmt.Println("Listening " + os.Args[2])
+	sock, err := net.Listen("tcp", os.Args[2])
 	ifErrorPrintAndExit(err)
 
 	defer sock.Close()
@@ -294,20 +292,13 @@ func startServer(arg string) {
 }
 
 func main() {
-	if len(os.Args) == 1 {
-		port := os.Getenv("PORT")
-		if len(port) == 0 {
-			printUsageAndExit()
-		}
-
-		startServer(":" + port)
-	} else if len(os.Args) == 3 {
+	if len(os.Args) == 3 {
 		switch os.Args[1] {
 		case "connect":
 			startClient()
 			break
 		case "listen":
-			startServer(os.Args[2])
+			startServer()
 			break
 		default:
 			printUsageAndExit()
