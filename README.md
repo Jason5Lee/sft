@@ -2,6 +2,10 @@
 
 <del>Stupid</del>Simple File Transporter
 
+## Warning
+
+This project is originally my Internet course's homework. Currently it is the project for me to practice CI/CD development. It doesn't have any security or anti-DDoS. DO NOT USE IT IN THE PRODUCTION.
+
 ## How to use
 
 ### Server
