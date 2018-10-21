@@ -62,12 +62,3 @@ deploy:
        tag: latest
        repository: jason5lee/sft
        registry: https://registry.hub.docker.com
-
-   - cng/cf-deploy:
-       api: $API
-       user: $USER
-       password: $PASSWORD
-       org: $ORG
-       space: $SPACE
-       appname: simple-file-transporter
-       docker_image: jason5lee/sft
