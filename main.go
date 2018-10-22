@@ -12,15 +12,6 @@ import (
 	"strings"
 )
 
-// LocalError represents the error that doesn't involve internet.
-type LocalError struct {
-	err error
-}
-
-func (ce LocalError) Error() string {
-	return ce.err.Error()
-}
-
 func printUsageAndExit() {
 	fmt.Println(`Usage:
 	sft [command] [arguments]
@@ -48,22 +39,17 @@ func showHelp() {
 `)
 }
 
-func sendHeader(conn net.Conn, header int32) error {
+func sendHeader(conn io.Writer, header uint32) error {
 	buf := make([]byte, 4)
-	binary.LittleEndian.PutUint32(buf, uint32(header))
+	binary.LittleEndian.PutUint32(buf, header)
 	_, err := conn.Write(buf)
 	return err
 }
 
-func sendString(conn net.Conn, ok bool, str string) (err error) {
+func sendString(conn io.Writer, str string) (err error) {
 	bytes := []byte(str)
-	if ok {
-		err = sendHeader(conn, int32(len(bytes)))
-	} else {
-		err = sendHeader(conn, int32(-len(bytes)))
-	}
 
-	if err != nil {
+	if err = sendHeader(conn, uint32(len(bytes))); err != nil {
 		return
 	}
 	_, err = conn.Write([]byte(str))
@@ -73,22 +59,25 @@ func sendString(conn net.Conn, ok bool, str string) (err error) {
 func sendFile(conn net.Conn, file string) error {
 	f, err := os.Open(file)
 	if err != nil {
-		return LocalError{err}
+		return sendString(conn, err.Error())
 	}
 	defer f.Close()
 
 	stat, err := f.Stat()
 	if err != nil {
-		return LocalError{err}
+		return sendString(conn, err.Error())
 	}
 
 	msgSize := stat.Size()
-	if msgSize > 2147483647 {
-		return LocalError{fmt.Errorf("file too large")}
+	if msgSize > 0xFFFFFFFF {
+		return sendString(conn, "file too large")
 	}
 
-	err = sendHeader(conn, int32(msgSize))
-	if err != nil {
+	if err = sendHeader(conn, 0); err != nil {
+		return err
+	}
+
+	if err = sendHeader(conn, uint32(msgSize)); err != nil {
 		return err
 	}
 
@@ -96,7 +85,7 @@ func sendFile(conn net.Conn, file string) error {
 	return err
 }
 
-func receiveHeader(conn net.Conn) (header int32, err error) {
+func receiveHeader(conn io.Reader) (header uint32, err error) {
 	buf := make([]byte, 4)
 
 	_, err = io.ReadFull(conn, buf)
@@ -104,22 +93,17 @@ func receiveHeader(conn net.Conn) (header int32, err error) {
 		return
 	}
 
-	header = int32(binary.LittleEndian.Uint32(buf))
+	header = uint32(binary.LittleEndian.Uint32(buf))
 	return
 }
 
-func receiveString(conn net.Conn) (msg string, err error) {
+func receiveString(conn io.Reader) (msg string, err error) {
 	header, err := receiveHeader(conn)
 	if err != nil {
 		return
 	}
 
-	var buf []byte
-	if header > 0 {
-		buf = make([]byte, header)
-	} else {
-		buf = make([]byte, -header)
-	}
+	buf := make([]byte, header)
 
 	_, err = io.ReadFull(conn, buf)
 	if err == nil {
@@ -130,23 +114,25 @@ func receiveString(conn net.Conn) (msg string, err error) {
 }
 
 func receiveFile(conn net.Conn, file string) error {
+	msg, err := receiveString(conn)
+	if err != nil {
+		return err
+	}
+
+	if len(msg) != 0 {
+		fmt.Println(msg)
+		return nil
+	}
+
 	header, err := receiveHeader(conn)
 	if err != nil {
 		return err
 	}
 
-	if header < 0 {
-		buf := make([]byte, -header)
-		_, err = io.ReadFull(conn, buf)
-		if err != nil {
-			return err
-		}
-		return LocalError{fmt.Errorf(string(buf))}
-	}
-
 	f, err := os.Create(file)
 	if err != nil {
-		return LocalError{err}
+		fmt.Println(err)
+		return nil
 	}
 	defer f.Close()
 
@@ -193,14 +179,14 @@ func clientLoop(stdreader *bufio.Reader, conn net.Conn) (err error) {
 			return nil
 		}
 
-		err = sendString(conn, true, tokens[1])
+		err = sendString(conn, tokens[1])
 		if err != nil {
 			return
 		}
 
 		err = receiveFile(conn, tokens[1])
 		if err != nil {
-			return err
+			return
 		}
 		return nil
 	case "exit":
@@ -209,7 +195,7 @@ func clientLoop(stdreader *bufio.Reader, conn net.Conn) (err error) {
 		showHelp()
 		return nil
 	default:
-		fmt.Println("Unknow command:", cmd)
+		fmt.Println("Unknown command:", cmd)
 		return nil
 	}
 }
@@ -226,9 +212,7 @@ func startClient() {
 	for {
 		if err = clientLoop(stdreader, conn); err != nil {
 			fmt.Println(err.Error())
-			if _, ok := err.(LocalError); !ok {
-				break
-			}
+			break
 		}
 	}
 }
@@ -244,7 +228,7 @@ func serverLoop(conn net.Conn) error {
 
 		files, err := ioutil.ReadDir("./")
 		if err != nil {
-			return sendString(conn, false, err.Error())
+			return sendString(conn, err.Error())
 		}
 
 		var code bytes.Buffer
@@ -255,7 +239,7 @@ func serverLoop(conn net.Conn) error {
 			code.WriteString(f.Name())
 			code.WriteString("\n")
 		}
-		return sendString(conn, true, code.String())
+		return sendString(conn, code.String())
 	}
 
 	// get
@@ -277,14 +261,12 @@ func startServer() {
 
 		go func(conn net.Conn) {
 			defer conn.Close()
+			fmt.Println(conn.RemoteAddr(), " connected.")
 
 			for {
 				if err := serverLoop(conn); err != nil {
-					fmt.Println(err.Error())
-
-					if _, ok := err.(LocalError); !ok {
-						break
-					}
+					fmt.Println(conn.RemoteAddr(), " disconnected.")
+					break
 				}
 			}
 		}(conn)
